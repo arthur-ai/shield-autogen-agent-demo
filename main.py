@@ -32,7 +32,10 @@ from sklearn.linear_model import LinearRegression
 import yfinance as yf
 import pandas as pd
 import numpy as np
+import os
+from dotenv import load_dotenv
 
+load_dotenv()  # Load environment variables from .env file
 
 from autogen_core import (
     BaseAgent,
@@ -905,7 +908,7 @@ def get_headers():
     """
     logger.debug("[get_headers] Generating API request headers")
     return {
-        "Authorization": "Bearer 1WEAq1j-6yyO59MAFwticjF51v-6U2vhYf4jy8Fi0EM",
+        "Authorization": f"Bearer {os.getenv("SHIELD_API_KEY")}",
         "Content-Type": "application/json"
     }
 

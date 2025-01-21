@@ -34,6 +34,7 @@ model_config.json
 OAI_*
 secrets.json
 config.ini
+.env
 
 # Trading logs and results
 logs/

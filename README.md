@@ -1,5 +1,4 @@
-# shield-autogen-agent-demo
-# Shield AutoGen Agent Demo
+# Arthur Shield AutoGen Agent Demo
 
 ## Overview
 This project demonstrates an AI assistant application using AutoGen with integrated safety and quality validation through Arthur Shield service. The system provides stock market analysis and predictions using various AI agents and tools, ensuring reliable and secure AI interactions.
@@ -25,7 +24,7 @@ This project demonstrates an AI assistant application using AutoGen with integra
 ## Installation
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/shield-autogen-agent-demo.git
+   git clone https://github.com/arthur-ai/shield-autogen-agent-demo.git
    cd shield-autogen-agent-demo
    ```
 
@@ -48,8 +47,19 @@ This project demonstrates an AI assistant application using AutoGen with integra
    SHIELD_API_KEY=your_shield_api_key
    ```
 
+5. Create a model_config.json file in the project root with:
+   ```
+   {
+     "model_name": "gpt-4o-mini",
+     "temperature": 0.5,
+     "max_tokens": 4096
+   }
+   ```
+
+6. Create a logs folder in the project root
+
 ## Configuration
-The system can be configured through `config.yaml`:
+The system can be configured through `model_config.json`:
 - Model settings (temperature, max tokens, etc.)
 - Agent parameters and roles
 - Logging preferences
@@ -63,8 +73,8 @@ The system can be configured through `config.yaml`:
    ```
 
 2. Interact with the system through the command line interface:
-   ```bash
-   python cli.py --stock AAPL --analysis-type technical
+   ```
+   Interact with the system through the command line interface
    ```
 
 ## Agent Architecture

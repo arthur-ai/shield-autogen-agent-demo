@@ -11,8 +11,11 @@ from io import BytesIO, StringIO
 import logging
 from datetime import datetime
 from alpha_vantage.fundamentaldata import FundamentalData
+import os
+from dotenv import load_dotenv
 
-ALPHA_VANTAGE_API_KEY = "K0GSU48Z2LVM0OIS   "
+load_dotenv()  # Load environment variables from .env file
+ALPHA_VANTAGE_API_KEY = os.getenv("ALPHA_VANTAGE_API_KEY")
 # Modified logger setup with datestamp in filename
 current_date = datetime.now().strftime('%Y-%m-%d')
 log_filename = f'logs/agents/agents_{current_date}.log'
