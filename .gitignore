@@ -1,0 +1,56 @@
+# Python basics
+__pycache__/
+*.py[cod]
+*.so
+.Python
+.conda/
+.venv/
+# Virtual Environment
+venv/
+.env
+.venv/
+
+# IDE
+.vscode/
+.idea/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Project specific
+# Data files and caches
+data/
+*.csv
+*.xlsx
+*.json
+!example_config.json  # Keep example config if you have one
+
+# API credentials and secrets
+*_key.txt
+*_secret.txt
+credentials.json
+model_config.json
+OAI_*
+secrets.json
+config.ini
+
+# Trading logs and results
+logs/
+backtest_results/
+trading_history/
+*.log
+
+# AutoGen specific
+agent_workspace/
+conversation_logs/
+
+# Model artifacts and caches
+.cache/
+models/
+*.pkl
+*.joblib
+
+# OS specific
+.DS_Store
+Thumbs.db
