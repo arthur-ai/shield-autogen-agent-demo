@@ -342,69 +342,6 @@ class SlowUserProxyAgent(RoutedAgent):
         await self._model_context.load_state(state["memory"])
 
 
-class ScheduleMeetingInput(BaseModel):
-    """
-    Input model for scheduling meeting requests.
-    
-    Attributes:
-        recipient (str): Name of the person to meet with
-        date (str): Desired meeting date
-        time (str): Desired meeting time
-    """
-    recipient: str = Field(description="Name of recipient")
-    date: str = Field(description="Date of meeting")
-    time: str = Field(description="Time of meeting")
-
-
-class ScheduleMeetingOutput(BaseModel):
-    """
-    Output model for scheduling meeting results.
-    Currently serves as a placeholder for future meeting confirmation details.
-    """
-    pass
-
-
-class ScheduleMeetingTool(BaseTool[ScheduleMeetingInput, ScheduleMeetingOutput]):
-    """
-    Tool for scheduling meetings with specified recipients.
-    Handles the creation and confirmation of meeting requests.
-    """
-    def __init__(self):
-        """
-        Initialize the meeting scheduling tool with input/output models
-        and tool metadata.
-        """
-        logger.debug("[ScheduleMeetingTool.init] Initializing meeting scheduling tool")
-        super().__init__(
-            ScheduleMeetingInput,
-            ScheduleMeetingOutput,
-            "schedule_meeting",
-            "Schedule a meeting with a recipient at a specific date and time",
-        )
-
-    async def run(self, args: ScheduleMeetingInput, cancellation_token: CancellationToken) -> ScheduleMeetingOutput:
-        """
-        Execute the meeting scheduling operation.
-        
-        Args:
-            args (ScheduleMeetingInput): Meeting details including recipient, date, and time
-            cancellation_token (CancellationToken): Token for cancelling the operation
-            
-        Returns:
-            ScheduleMeetingOutput: Confirmation of meeting scheduling
-        """
-        logger.info(f"[ScheduleMeetingTool.run] Scheduling meeting with {args.recipient} on {args.date} at {args.time}")
-        print(f"Meeting scheduled with {args.recipient} on {args.date} at {args.time}")
-        return ScheduleMeetingOutput()
-
-
-# Routing configuration for different task types
-ROUTING_RULES = {
-    "stock_data": "stock_data",  # Routes stock data requests to stock data agent
-    "stock_predictor": "stock_predictor",  # Routes prediction requests to predictor agent
-}
-
-
 @type_subscription("assistant_conversation")
 class OrchestratorAssistantAgent(RoutedAgent):
     """
@@ -568,70 +505,185 @@ class OrchestratorAssistantAgent(RoutedAgent):
         Returns:
             None
         """
-        shield_task = "915ba7d1-f3a9-4190-b264-a07df4eb6bf7"
         logger.info(f"[OrchestratorAssistantAgent.handle_message] Received user message from {message.source}")
         logger.debug(f"[OrchestratorAssistantAgent.handle_message] Message content: {message.content[:100]}...")
         
-        # Initial shield validation of user input
-        # Checks for safety, appropriateness, and basic input validation
-        logger.info(f"[OrchestratorAssistantAgent.handle_message] Sending message to shield")
-        shield_response = await send_prompt_to_shield(message.content, self._orchestrator_task)
+        await self._model_context.add_message(UserMessage(content=message.content, source=message.source))
+        result = await self.message_loop(message, ctx, self._system_message, 0)
+
+        # Format and publish final response
+        # Creates human-readable version of the answer
+        logger.info("[OrchestratorAssistantAgent] Publishing assistant response")
+        resolution_text = f"""
+                    The initial query was: {message.content}                    
+                    the answer was: {result}
+                    Can you make the answer more human readable don't add any non-essential text?
+                """
+        logger.debug(f"[OrchestratorAssistantAgent] Resolution text: {resolution_text}")
         
-        # Process shield validation results
-        # Creates inference result object to track validation status and details
+        # Final shield validation of formatted response
+        shield_response = await send_prompt_to_shield(resolution_text, self._orchestrator_task)
         inference_result = InferenceResult(shield_response)
         logger.debug(f"[OrchestratorAssistantAgent] Shield validation response: {inference_result.get_rule_details()}")
         logger.debug(f"[OrchestratorAssistantAgent] Shield validation response: {inference_result.get_pass_fail_results()}")
-
-        # Add user message to conversation contexts
-        # Maintains history for both main conversation and validation flows
-        logger.debug(f"[OrchestratorAssistantAgent.handle_message] Adding query to model context")
-        await self._model_context.add_message(UserMessage(content=message.content, source=message.source))
-        await self._validator_context.add_message(UserMessage(content=message.content, source=message.source))
-
-        # Initialize available tools for processing user requests
-        # Sets up specialized financial analysis and information tools
-        logger.info("[OrchestratorAssistantAgent] Initializing tools")
-        tools = [StockInfoTool(), SentimentAnalysisTool(), FinancialLiteracyTool(), PortfolioOptimizationTool()]
         
-        # Get initial model response without tools
-        # This helps understand the user's intent before tool selection
-        logger.info("[OrchestratorAssistantAgent] Requesting initial model response")
-        response = await self._model_client.create(
-            self._system_message + (await self._model_context.get_messages()), tools=[]
+        # Generate and validate final human-readable response
+        resolution_message = SystemMessage(content=resolution_text)
+        final_resolution_response = await self._model_client.create(
+            self._system_validation_message + [resolution_message], tools=[]
         )
-        logger.debug(f"[OrchestratorAssistantAgent] Initial model response: {response.content[:100]}...")
-        
-        # Get conversation context for shield validation
-        # Provides full conversation history for contextual validation
-        logger.debug("[OrchestratorAssistantAgent] Getting context for shield")
         context = await self._model_context.get_messages()
-        
-        # Validate model response through shield service
-        # Ensures response meets safety and quality standards
-        logger.info("[OrchestratorAssistantAgent] Sending response to shield")
-        shield_message = await send_response_to_shield(response.content, self._orchestrator_task, inference_result.get_inference_id(), context)
+        shield_message = await send_response_to_shield(final_resolution_response.content, self._orchestrator_task, inference_result.get_inference_id(), context)
         if shield_message is not None:
             inference_result = InferenceResult(shield_message)
             logger.debug(f"[OrchestratorAssistantAgent] Shield validation response: {inference_result.get_rule_details()}")
             logger.debug(f"[OrchestratorAssistantAgent] Shield validation response: {inference_result.get_pass_fail_results()}")
         
+        # Publish final response to user
+        logger.debug(f"[OrchestratorAssistantAgent] Validation response: {final_resolution_response.content}")
+        speech = AssistantTextMessage(content=final_resolution_response.content, source=self.metadata["type"])
+        await self._model_context.add_message(AssistantMessage(content=final_resolution_response.content, source=self.metadata["type"]))
+        await self.publish_message(speech, topic_id=DefaultTopicId("assistant_conversation"))
+
+    async def message_loop(self, message: UserTextMessage, ctx: MessageContext, system_message: SystemMessage, loop_count: int) -> None:
+        """
+        Processes user messages through a validation and response generation loop.
+        
+        This method handles the core conversation flow, including:
+        - Initial shield validation of user input
+        - Tool selection and execution
+        - Response validation and refinement
+        - Safety checks and quality assurance
+        
+        Args:
+            message (UserTextMessage): The user's input message to process
+            ctx (MessageContext): Context information for the current message
+            system_message (SystemMessage): System-level configuration and prompts
+            loop_count (int): Number of refinement iterations attempted
+            
+        Returns:
+            str: The final validated and processed response
+            
+        Flow:
+            1. Initial shield validation of user input
+            2. Context management and tool initialization
+            3. Initial model response generation
+            4. Tool execution and response aggregation
+            5. Response validation and refinement
+            6. Final safety checks and formatting
+            
+        Note:
+            The method will attempt up to 3 refinement loops if validation fails,
+            helping ensure high-quality, relevant responses.
+        """
+        
+        # Initial shield validation of user input
+        query = message.content
+        # Checks for safety, appropriateness, and basic input validation
+        logger.info(f"[OrchestratorAssistantAgent.message_loop] Sending message to shield")
+        shield_response = await send_prompt_to_shield(query, self._orchestrator_task)
+        
+
+        # Process shield validation results
+        # Creates inference result object to track validation status and details
+        inference_result = InferenceResult(shield_response)
+        logger.debug(f"[OrchestratorAssistantAgent.message_loop] Shield validation response: {inference_result.get_rule_details()}")
+        logger.debug(f"[OrchestratorAssistantAgent.message_loop] Shield validation response: {inference_result.get_pass_fail_results()}")
+
+        # Add user message to conversation contexts
+        # Maintains history for both main conversation and validation flows
+        logger.debug(f"[OrchestratorAssistantAgent.message_loop] Adding query to model context")
+        await self._validator_context.add_message(UserMessage(content=query, source=message.source))
+
+        # Initialize available tools for processing user requests
+        # Sets up specialized financial analysis and information tools
+        logger.info("[OrchestratorAssistantAgent.message_loop] Initializing tools")
+        tools = [StockInfoTool(), SentimentAnalysisTool(), FinancialLiteracyTool(), PortfolioOptimizationTool()]
+        
+        # Get initial model response without tools
+        # This helps understand the user's intent before tool selection
+        logger.info("[OrchestratorAssistantAgent.message_loop] Requesting initial model response")
+        response = await self._model_client.create(
+            system_message + (await self._validator_context.get_messages()), tools=[]
+        )
+        logger.debug(f"[OrchestratorAssistantAgent.message_loop] Initial model response: {response.content[:100]}...")
+        
+        # Get conversation context for shield validation
+        # Provides full conversation history for contextual validation
+        logger.debug("[OrchestratorAssistantAgent.message_loop] Getting context for shield")
+        context = await self._validator_context.get_messages()
+        
+        # Validate model response through shield service
+        # Ensures response meets safety and quality standards
+        logger.info("[OrchestratorAssistantAgent.message_loop] Sending response to shield")
+        shield_message = await send_response_to_shield(response.content, self._orchestrator_task, inference_result.get_inference_id(), context)
+        if shield_message is not None:
+            inference_result = InferenceResult(shield_message)
+            logger.debug(f"[OrchestratorAssistantAgent.message_loop] Shield validation response: {inference_result.get_rule_details()}")
+            logger.debug(f"[OrchestratorAssistantAgent.message_loop] Shield validation response: {inference_result.get_pass_fail_results()}")
+        
         # Get final model response with tools enabled
         # Allows model to use specialized tools for detailed analysis
-        logger.info("[OrchestratorAssistantAgent] Requesting final model response with tools")
-        response = await self._model_client.create(
-            self._system_message + (await self._model_context.get_messages()), tools=tools
+        logger.info("[OrchestratorAssistantAgent.message_loop] Requesting final model response with tools")
+        response_with_tools = await self._model_client.create(
+            system_message + (await self._validator_context.get_messages()), tools=tools
         )
-
-        query = context[-1]
         
         # Process tool calls and get combined response
         # Executes necessary tool operations and aggregates results
-        final_response, tool_responses = await self.loop_calls(response.content, tools, ctx, query, shield_task)
-        logger.debug(f"[OrchestratorAssistantAgent] Final response: {final_response}")
+        final_response, tool_responses = await self.loop_calls(response_with_tools.content, tools, ctx, query)
+        logger.debug(f"[OrchestratorAssistantAgent.message_loop] Final response: {final_response}")
         
         # Process individual tool responses
         # Validates each tool's output for safety and quality
+        tool_context = await self.validate_tool_responses(tool_responses, query, context)
+
+        # Validate final response using LLM
+        # Ensures response quality and relevance to original query
+        context = await self._validator_context.get_messages()
+        is_valid, validation_response = await self.LLM_validation(query, final_response, self._validator_task, context)
+        
+        # Loop until valid response is generated
+        # Continues refining response if validation fails
+        logger.debug(f"[OrchestratorAssistantAgent.message_loop] Is valid: {is_valid}")
+        if not is_valid and loop_count < 3:
+            correction_message = SystemMessage(content=f"""
+                    The initial query was: {context[1]}                    
+                    the answer was: {final_response}
+                    This answer was not valid, the error is: {validation_response}
+                    Having seen the error and the mistakes, can you answer the query, {context[1]} again?
+                """)
+            await self._validator_context.add_message(SystemMessage(content=correction_message.content, source=correction_message.source))
+            return await self.message_loop(correction_message, ctx, system_message, loop_count + 1)
+        
+        logger.info(f"[OrchestratorAssistantAgent.message_loop] Returning final response {validation_response}")
+        return final_response
+    
+    async def validate_tool_responses(self, tool_responses: list[dict], message: str, context: list[LLMMessage]) -> bool:
+        """
+        Validates responses from multiple tools through the shield service.
+
+        This function processes each tool response through appropriate validation tasks
+        based on the tool type. It ensures responses meet safety, quality, and 
+        relevance standards before being presented to users.
+
+        Args:
+            tool_responses (list[dict]): List of dictionaries containing tool responses
+                Each dict should have:
+                - name: The tool's identifier
+                - response: The tool's output data
+            message (LLMMessage): The original LLM message that triggered the tool calls
+            context (list[LLMMessage]): Current conversation context for validation
+
+        Returns:
+            list[dict]: List of validation results for each tool response
+                Each result contains pass/fail status and validation details
+
+        Note:
+            Different validation tasks are used based on tool type:
+            - Financial data tools use quantitative validation (553368bd-...)
+            - Educational content uses content safety validation (915ba7d1-...)
+        """
         tool_context = []
         for tool_response in tool_responses:
             logger.debug(f"[ToolValidation] Processing tool response: {tool_response}...")
@@ -653,70 +705,21 @@ class OrchestratorAssistantAgent(RoutedAgent):
                 validation_task = "553368bd-69d4-4fa0-bf5c-89222f79afd8"
             elif tool_response["name"] == "ai_powered_stock_screener":  # StockScreenerTool
                 validation_task = "553368bd-69d4-4fa0-bf5c-89222f79afd8"
-
-            
-            
             # Validate tool response through shield service
             logger.debug(f"[ToolValidation] Processing tool response: {tool_response['response'][:100]}...")
-            shield_response = await send_prompt_to_shield(message.content, validation_task)
-            # if shield_response is not None:
+            shield_response = await send_prompt_to_shield(message, validation_task)
             inference_result = InferenceResult(shield_response)
             shield_response = await send_response_to_shield(tool_response["response"], validation_task, inference_result.get_inference_id(), context)
             
-            if shield_message is not None:
-                inference_result = InferenceResult(shield_message)
+            if shield_response is not None:
+                inference_result = InferenceResult(shield_response)
                 logger.debug(f"[ToolValidation] Shield validation response: {inference_result.get_rule_details()}")
                 logger.debug(f"[ToolValidation] Shield validation response: {inference_result.get_pass_fail_results()}")
                 tool_context.append(inference_result.get_pass_fail_results())
+        
+        return tool_context
 
-        # Validate final response using LLM
-        # Ensures response quality and relevance to original query
-        context = await self._model_context.get_messages()
-        is_valid, validation_response = await self.LLM_validation(query, final_response, self._validator_task, context)
-        
-        # Loop until valid response is generated
-        # Continues refining response if validation fails
-        logger.debug(f"[OrchestratorAssistantAgent] Is valid: {is_valid}")
-        while not is_valid:
-            is_valid, validation_response = await self.LLM_validation(query, final_response, self._validator_task, context)
-            logger.info("[OrchestratorAssistantAgent] Publishing termination message")
-            termination_message = TerminateMessage(content=validation_response)
-            await self.publish_message(termination_message, topic_id=DefaultTopicId("assistant_conversation"))
-
-        # Format and publish final response
-        # Creates human-readable version of the answer
-        logger.info("[OrchestratorAssistantAgent] Publishing assistant response")
-        resolution_text = f"""
-                    The initial query was: {context[1]}                    
-                    the answer was: {final_response}
-                    Can you make the answer more human readable don't add any non-essential text?
-                """
-        logger.debug(f"[OrchestratorAssistantAgent] Resolution text: {resolution_text}")
-        
-        # Final shield validation of formatted response
-        shield_response = await send_prompt_to_shield(resolution_text, self._orchestrator_task)
-        inference_result = InferenceResult(shield_response)
-        logger.debug(f"[OrchestratorAssistantAgent] Shield validation response: {inference_result.get_rule_details()}")
-        logger.debug(f"[OrchestratorAssistantAgent] Shield validation response: {inference_result.get_pass_fail_results()}")
-        
-        # Generate and validate final human-readable response
-        resolution_message = SystemMessage(content=resolution_text)
-        final_resolution_response = await self._model_client.create(
-            self._system_validation_message + [resolution_message], tools=[]
-        )
-        shield_message = await send_response_to_shield(final_resolution_response.content, self._orchestrator_task, inference_result.get_inference_id(), context)
-        if shield_message is not None:
-            inference_result = InferenceResult(shield_message)
-            logger.debug(f"[OrchestratorAssistantAgent] Shield validation response: {inference_result.get_rule_details()}")
-            logger.debug(f"[OrchestratorAssistantAgent] Shield validation response: {inference_result.get_pass_fail_results()}")
-        
-        # Publish final response to user
-        logger.debug(f"[OrchestratorAssistantAgent] Validation response: {final_resolution_response.content}")
-        speech = AssistantTextMessage(content=final_resolution_response.content, source=self.metadata["type"])
-        await self._model_context.add_message(AssistantMessage(content=final_resolution_response.content, source=self.metadata["type"]))
-        await self.publish_message(speech, topic_id=DefaultTopicId("assistant_conversation"))
-
-    async def loop_calls(self, calls: list[FunctionCall], tools: list[BaseTool], ctx: MessageContext, query: str, shield_task: str) -> None:
+    async def loop_calls(self, calls: list[FunctionCall], tools: list[BaseTool], ctx: MessageContext, query: str) -> None:
         """
         Executes a series of tool function calls and validates their responses.
         
@@ -753,7 +756,6 @@ class OrchestratorAssistantAgent(RoutedAgent):
                     "response": output.data
                 }
                 tool_responses.append(tool_response)
-                await self._model_context.add_message(SystemMessage(content=output.data, source=call.name))
                 await self._validator_context.add_message(SystemMessage(content=output.data, source=call.name))
         logger.debug(f"[OrchestratorAssistantAgent] Final response: {final_response}")
         return final_response, tool_responses
@@ -796,8 +798,9 @@ class OrchestratorAssistantAgent(RoutedAgent):
         inference_id = shield_response["inference_id"]
 
         checking_message = SystemMessage(content=check_text)
+        await self._validator_context.add_message(checking_message)
         validation_response = await self._model_client.create(
-            self._system_validation_message + [checking_message], tools=[]
+            self._system_validation_message + (await self._validator_context.get_messages()), tools=[]
         )
         shield_message = await send_response_to_shield(validation_response.content, shield_task, inference_id, context)
 
@@ -908,7 +911,7 @@ def get_headers():
     """
     logger.debug("[get_headers] Generating API request headers")
     return {
-        "Authorization": f"Bearer {os.getenv("SHIELD_API_KEY")}",
+        "Authorization": f"Bearer {os.getenv('SHIELD_API_KEY')}",
         "Content-Type": "application/json"
     }
 

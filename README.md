@@ -56,7 +56,9 @@ This project demonstrates an AI assistant application using AutoGen with integra
    }
    ```
 
-6. Create a logs folder in the project root
+6. Create a `logs` folder in the project root
+7. Create a `logs/assistant` folder in the project root
+8. Create a `logs/agent` folder in the project root
 
 ## Configuration
 The system can be configured through `model_config.json`:
