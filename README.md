@@ -61,6 +61,7 @@ This project demonstrates an AI assistant application using AutoGen with integra
 8. Create a `logs/agent` folder in the project root
 
 ## Configuration
+For Orchestrator Only Workflow: Make sure to comment out the Orchestrator and Validator Workflow code in main.py. For Orchestrator and Validator Workflow: Make sure to uncomment the Orchestrator and Validator Workflow code in main.py.
 The system can be configured through `model_config.json`:
 - Model settings (temperature, max tokens, etc.)
 - Agent parameters and roles

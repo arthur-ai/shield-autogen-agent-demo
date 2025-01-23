@@ -20,7 +20,7 @@ ALPHA_VANTAGE_API_KEY = os.getenv("ALPHA_VANTAGE_API_KEY")
 current_date = datetime.now().strftime('%Y-%m-%d')
 log_filename = f'logs/agents/agents_{current_date}.log'
 
-logger = logging.getLogger('agents')
+logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 file_handler = logging.FileHandler(log_filename)
 file_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
@@ -108,7 +108,7 @@ class SentimentAnalysisInput(BaseModel):
     company_name: str = Field(description="Name of the company.")
 
 class SentimentAnalysisOutput(BaseModel):
-    data: Dict[str, float | str] = Field(description="Dictionary containing sentiment analysis results")
+    data: str = Field(description="String containing sentiment analysis results")
 
 class SentimentAnalysisTool(BaseTool[SentimentAnalysisInput, SentimentAnalysisOutput]):
     def __init__(self):
@@ -122,10 +122,7 @@ class SentimentAnalysisTool(BaseTool[SentimentAnalysisInput, SentimentAnalysisOu
     async def run(self, args: SentimentAnalysisInput, cancellation_token: CancellationToken) -> SentimentAnalysisOutput:
         sentiment_score = np.random.uniform(-1, 1)
         sentiment = "positive" if sentiment_score > 0 else "negative"
-        return SentimentAnalysisOutput(data={
-            "sentiment": sentiment,
-            "score": sentiment_score
-        })
+        return SentimentAnalysisOutput(data=f"The sentiment for {args.company_name} is {sentiment} with a score of {sentiment_score:.2f}")
 
 
 ### 6. FinancialLiteracyTool ###
@@ -183,7 +180,7 @@ class PortfolioOptimizationInput(BaseModel):
     portfolio: Dict[str, float] = Field(description="Portfolio with asset weights.")
 
 class PortfolioOptimizationOutput(BaseModel):
-    data: Dict[str, float] = Field(description="Optimized portfolio weights.")
+    data: str = Field(description="Optimized portfolio weights as a formatted string.")
 
 class PortfolioOptimizationTool(BaseTool[PortfolioOptimizationInput, PortfolioOptimizationOutput]):
     def __init__(self):
@@ -196,7 +193,10 @@ class PortfolioOptimizationTool(BaseTool[PortfolioOptimizationInput, PortfolioOp
 
     async def run(self, args: PortfolioOptimizationInput, cancellation_token: CancellationToken) -> PortfolioOptimizationOutput:
         optimized_portfolio = {asset: weight * 1.05 for asset, weight in args.portfolio.items()}
-        return PortfolioOptimizationOutput(data=optimized_portfolio)
+        formatted_output = "Optimized Portfolio Allocation:\n"
+        for asset, weight in optimized_portfolio.items():
+            formatted_output += f"{asset}: {weight:.2%}\n"
+        return PortfolioOptimizationOutput(data=formatted_output)
     
 
 class SavingsGoalInput(BaseModel):
@@ -284,7 +284,7 @@ class StockScreenerInput(BaseModel):
     market_cap_max: float = Field(description="Maximum market capitalization (in billions).")
 
 class StockScreenerOutput(BaseModel):
-    stocks: str = Field(description="Formatted string of stocks meeting the criteria with their market caps.")
+    data: str = Field(description="Formatted string of stocks meeting the criteria with their market caps.")
 
 class StockScreenerTool(BaseTool[StockScreenerInput, StockScreenerOutput]):
     def __init__(self):
