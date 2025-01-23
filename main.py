@@ -209,6 +209,20 @@ class InferenceResult:
             for rule in self.rule_results
         ]
 
+    def get_pass_fail_string(self) -> str:
+        """
+        Returns a formatted string of rule names and their pass/fail status.
+        
+        Example output:
+            "Content Safety: PASS
+             Input Validation: FAIL
+             Response Quality: PASS"
+        """
+        return "\n".join(
+            f"{rule.name}: {'PASS' if rule.result_boolean else 'FAIL'}"
+            for rule in self.rule_results
+        )
+
     def get_rule_details(self) -> List[Dict[str, Any]]:
         """
         Returns a list of all rules with their details.
@@ -526,6 +540,7 @@ class OrchestratorAssistantAgent(RoutedAgent):
         inference_result = InferenceResult(shield_response)
         logger.debug(f"[OrchestratorAssistantAgent] Shield validation response: {inference_result.get_rule_details()}")
         logger.debug(f"[OrchestratorAssistantAgent] Shield validation response: {inference_result.get_pass_fail_results()}")
+        await self._model_context.add_message(SystemMessage(content=inference_result.get_pass_fail_string(), source=message.source))
         
         # Generate and validate final human-readable response
         resolution_message = SystemMessage(content=resolution_text)
@@ -538,6 +553,8 @@ class OrchestratorAssistantAgent(RoutedAgent):
             inference_result = InferenceResult(shield_message)
             logger.debug(f"[OrchestratorAssistantAgent] Shield validation response: {inference_result.get_rule_details()}")
             logger.debug(f"[OrchestratorAssistantAgent] Shield validation response: {inference_result.get_pass_fail_results()}")
+            await self._model_context.add_message(SystemMessage(content=inference_result.get_pass_fail_string(), source=message.source))
+
         
         # Publish final response to user
         logger.debug(f"[OrchestratorAssistantAgent] Validation response: {final_resolution_response.content}")
@@ -589,7 +606,8 @@ class OrchestratorAssistantAgent(RoutedAgent):
         inference_result = InferenceResult(shield_response)
         logger.debug(f"[OrchestratorAssistantAgent.message_loop] Shield validation response: {inference_result.get_rule_details()}")
         logger.debug(f"[OrchestratorAssistantAgent.message_loop] Shield validation response: {inference_result.get_pass_fail_results()}")
-
+        await self._validator_context.add_message(SystemMessage(content=inference_result.get_pass_fail_string(), source=message.source))
+        
         # Add user message to conversation contexts
         # Maintains history for both main conversation and validation flows
         logger.debug(f"[OrchestratorAssistantAgent.message_loop] Adding query to model context")
@@ -621,6 +639,7 @@ class OrchestratorAssistantAgent(RoutedAgent):
             inference_result = InferenceResult(shield_message)
             logger.debug(f"[OrchestratorAssistantAgent.message_loop] Shield validation response: {inference_result.get_rule_details()}")
             logger.debug(f"[OrchestratorAssistantAgent.message_loop] Shield validation response: {inference_result.get_pass_fail_results()}")
+            await self._validator_context.add_message(SystemMessage(content=inference_result.get_pass_fail_string(), source=message.source))
         
         # Get final model response with tools enabled
         # Allows model to use specialized tools for detailed analysis
@@ -636,8 +655,8 @@ class OrchestratorAssistantAgent(RoutedAgent):
         
         # Process individual tool responses
         # Validates each tool's output for safety and quality
-        tool_context = await self.validate_tool_responses(tool_responses, query, context)
-
+        await self.validate_tool_responses(tool_responses, query, context)
+        
         # Validate final response using LLM
         # Ensures response quality and relevance to original query
         context = await self._validator_context.get_messages()
@@ -710,14 +729,18 @@ class OrchestratorAssistantAgent(RoutedAgent):
             shield_response = await send_prompt_to_shield(message, validation_task)
             inference_result = InferenceResult(shield_response)
             shield_response = await send_response_to_shield(tool_response["response"], validation_task, inference_result.get_inference_id(), context)
-            
             if shield_response is not None:
                 inference_result = InferenceResult(shield_response)
                 logger.debug(f"[ToolValidation] Shield validation response: {inference_result.get_rule_details()}")
                 logger.debug(f"[ToolValidation] Shield validation response: {inference_result.get_pass_fail_results()}")
-                tool_context.append(inference_result.get_pass_fail_results())
+                tool_context.append(inference_result.get_pass_fail_string())
         
-        return tool_context
+        tool_validation_message = f"""
+                                    The tool responses were sent to the shield service and the results are: {tool_context}
+                                    """
+        tool_system_message = SystemMessage(content=tool_validation_message)
+        await self._validator_context.add_message(tool_system_message)
+        return
 
     async def loop_calls(self, calls: list[FunctionCall], tools: list[BaseTool], ctx: MessageContext, query: str) -> None:
         """
@@ -759,10 +782,6 @@ class OrchestratorAssistantAgent(RoutedAgent):
                 await self._validator_context.add_message(SystemMessage(content=output.data, source=call.name))
         logger.debug(f"[OrchestratorAssistantAgent] Final response: {final_response}")
         return final_response, tool_responses
-    
-    async def handleValidation_message(self, message: UserTextMessage, ctx: MessageContext) -> None:
-        return
-    
     
     async def save_state(self) -> Mapping[str, Any]:
         return {
