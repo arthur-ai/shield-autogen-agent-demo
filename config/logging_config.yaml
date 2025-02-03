@@ -1,0 +1,51 @@
+version: 1
+disable_existing_loggers: False
+
+formatters:
+    standard:
+        format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    error:
+        format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+handlers:
+    console:
+        class: logging.StreamHandler
+        level: DEBUG
+        formatter: standard
+        stream: ext://sys.stdout
+
+    tools_file_handler:
+        class: logging.FileHandler
+        level: DEBUG
+        formatter: standard
+        filename: logs/tools/tools_{timestamp}.log
+        encoding: utf8
+
+    assistant_file_handler:
+        class: logging.FileHandler
+        level: DEBUG
+        formatter: standard
+        filename: logs/assistant/assistant_{timestamp}.log
+        encoding: utf8
+
+    error_file_handler:
+        class: logging.FileHandler
+        level: ERROR
+        formatter: error
+        filename: logs/error_{timestamp}.log
+        encoding: utf8
+
+root:
+    level: DEBUG
+    handlers: [error_file_handler]
+
+loggers:
+    src.tools:
+        level: INFO
+        handlers: [tools_file_handler]
+        propagate: no
+
+    src.core:
+        level: INFO
+        handlers: [assistant_file_handler]
+        propagate: no 

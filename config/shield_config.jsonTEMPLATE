@@ -1,0 +1,22 @@
+{
+  "tools": {
+    "fetch_stock_data": {
+      "name": "StockInfoTool",
+      "shield_task": "INSERT_SHIELD_TASK_ID_HERE"
+    },
+    "ai_powered_stock_screener": {
+      "name": "StockScreenerTool",
+      "shield_task": "INSERT_SHIELD_TASK_ID_HERE"
+    }
+  },
+  "agents": {
+      "OrchestratorAgent": {
+        "name": "orchestrator",
+        "shield_task": "INSERT_SHIELD_TASK_ID_HERE"
+      },
+      "ValidatorAgent": {
+        "name": "validator",
+        "shield_task": "INSERT_SHIELD_TASK_ID_HERE"
+      }
+  }
+}

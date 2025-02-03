@@ -1,0 +1,10 @@
+{
+    "provider": "AzureOpenAIChatCompletionClient",
+    "config": {
+        "model": "gpt-3.5-turbo",
+        "azure_endpoint": "https://arthur-devtest-1-canadaeast.openai.azure.com/",
+        "azure_deployment": "gpt-35-turbo-0125",
+        "api_version": "2023-05-15",
+        "api_key": "f5113af2586c43f78c7f5a8f47482409"
+    }
+}
