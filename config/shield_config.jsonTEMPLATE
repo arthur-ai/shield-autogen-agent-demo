@@ -7,6 +7,10 @@
     "ai_powered_stock_screener": {
       "name": "StockScreenerTool",
       "shield_task": "INSERT_SHIELD_TASK_ID_HERE"
+    },
+    "default": {
+      "name": "Default",
+      "shield_task": "INSERT_SHIELD_TASK_ID_HERE"
     }
   },
   "agents": {

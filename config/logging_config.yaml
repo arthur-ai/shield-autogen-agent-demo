@@ -46,6 +46,6 @@ loggers:
         propagate: no
 
     src.core:
-        level: INFO
+        level: DEBUG
         handlers: [assistant_file_handler]
         propagate: no 
