@@ -1,7 +1,10 @@
 # Arthur Shield AutoGen Agent Demo
 
 ## Overview
-This project demonstrates an advanced AI assistant application that combines AutoGen's multi-agent capabilities with Arthur Shield's safety and quality validation services. The system enables intelligent stock market analysis and predictions while ensuring all AI interactions are secure, reliable, and properly validated.
+This project provides an example of how Arthur Shield can be used to protect an Agentic Application. 
+
+The agentic use-case in this repository is a Financial Analyst Agent that utilizes a handful of tools to query external systems used in 
+generating the response about a user's query. 
 
 ## Key Features
 - **Intelligent Stock Analysis**: Real-time market data processing and analysis
