@@ -56,8 +56,7 @@ from src.tools.tools import (
     FinancialLiteracyTool, 
     PortfolioOptimizationTool, 
     OptionsPricingTool, 
-    StockScreenerTool, 
-    SavingsGoalTool
+    StockScreenerTool
 )
 
 from src.arthur_shield.helpers import get_shield_task, send_prompt_to_shield, send_response_to_shield
@@ -263,6 +262,7 @@ class SoloOrchestratorAssistantAgent(RoutedAgent):
         final_response, tool_responses = await self.loop_calls(response_with_tools.content, tools, ctx, query)
         if final_response == "":
             return response, ""
+        
         logger.debug(f"[SoloOrchestratorAssistantAgent.message_loop] Final response: {final_response}")
         
         # Process individual tool responses

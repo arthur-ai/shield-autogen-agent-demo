@@ -40,6 +40,7 @@ class StockInfoTool(BaseTool[StockDataInput, StockDataOutput]):
 
     async def run(self, args: StockDataInput, cancellation_token: CancellationToken) -> StockDataOutput:
         logger.info(f"Fetching stock data for ticker: {args.ticker}")
+        # https://www.alphavantage.co/query?function=TIME_SERIES_INTRADAY&symbol=IBM&interval=5min&apikey=1WEAq1j-6yyO59MAFwticjF51v-6U2vhYf4jy8Fi0EM
         try:
             stock = yf.Ticker(args.ticker)
             data = stock.history(period="1d")
@@ -111,7 +112,7 @@ class SentimentAnalysisTool(BaseTool[SentimentAnalysisInput, SentimentAnalysisOu
         return SentimentAnalysisOutput(data=f"The sentiment for {args.company_name} is {sentiment} with a score of {sentiment_score:.2f}")
 
 
-### 6. FinancialLiteracyTool ###
+### FinancialLiteracyTool ###
 class FinancialLiteracyInput(BaseModel):
     query: str = Field(description="Financial topic or term to explain.")
 
@@ -184,41 +185,6 @@ class PortfolioOptimizationTool(BaseTool[PortfolioOptimizationInput, PortfolioOp
             formatted_output += f"{asset}: {weight:.2%}\n"
         return PortfolioOptimizationOutput(data=formatted_output)
     
-
-class SavingsGoalInput(BaseModel):
-    goal_amount: float = Field(description="Target amount to save.")
-    target_date: str = Field(description="Target date to achieve the goal (YYYY-MM-DD).")
-    current_savings: float = Field(description="Current savings amount.")
-
-class SavingsGoalOutput(BaseModel):
-    data: str = Field(description="Amount to save each month.")
-
-class SavingsGoalTool(BaseTool[SavingsGoalInput, SavingsGoalOutput]):
-    def __init__(self):
-        super().__init__(
-            SavingsGoalInput,
-            SavingsGoalOutput,
-            "savings_goal_planner",
-            "Helps plan savings for specific financial goals.",
-        )
-
-    async def run(self, args: SavingsGoalInput, cancellation_token: CancellationToken, **kwargs) -> SavingsGoalOutput:
-        from datetime import datetime
-        try:
-            target_date = datetime.strptime(args.target_date, "%Y-%m-%d")
-            today = datetime.today()
-            months_to_save = ((target_date.year - today.year) * 12 + target_date.month - today.month)
-            if months_to_save <= 0:
-                raise ValueError("Target date must be in the future.")
-            monthly_savings = (args.goal_amount - args.current_savings) / months_to_save
-            explanation = (
-                f"To reach your savings goal of ${args.goal_amount:,.2f} by {args.target_date}, "
-                f"starting with ${args.current_savings:,.2f}, "
-                f"you need to save ${monthly_savings:,.2f} per month for {months_to_save} months."
-            )
-            return SavingsGoalOutput(data=explanation)
-        except Exception as e:
-            raise RuntimeError(f"Error calculating savings goal: {e}")
 
 class OptionsPricingInput(BaseModel):
     ticker: str = Field(description="Stock ticker symbol (e.g., AAPL for Apple).")
