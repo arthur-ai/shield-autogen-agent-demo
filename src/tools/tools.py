@@ -40,7 +40,6 @@ class StockInfoTool(BaseTool[StockDataInput, StockDataOutput]):
 
     async def run(self, args: StockDataInput, cancellation_token: CancellationToken) -> StockDataOutput:
         logger.info(f"Fetching stock data for ticker: {args.ticker}")
-        # https://www.alphavantage.co/query?function=TIME_SERIES_INTRADAY&symbol=IBM&interval=5min&apikey=1WEAq1j-6yyO59MAFwticjF51v-6U2vhYf4jy8Fi0EM
         try:
             stock = yf.Ticker(args.ticker)
             data = stock.history(period="1d")

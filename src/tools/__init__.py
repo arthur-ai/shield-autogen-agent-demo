@@ -10,7 +10,6 @@ from src.tools.tools import (
     PortfolioOptimizationTool,
     OptionsPricingTool,
     StockScreenerTool,
-    SavingsGoalTool
 )
 
 __all__ = [
@@ -21,5 +20,4 @@ __all__ = [
     'PortfolioOptimizationTool',
     'OptionsPricingTool',
     'StockScreenerTool',
-    'SavingsGoalTool'
 ] 
