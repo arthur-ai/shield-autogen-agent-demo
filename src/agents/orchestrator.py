@@ -56,15 +56,13 @@ from src.tools.tools import (
     FinancialLiteracyTool, 
     PortfolioOptimizationTool, 
     OptionsPricingTool, 
-    StockScreenerTool, 
-    SavingsGoalTool
+    StockScreenerTool
 )
 
 from src.arthur_shield.helpers import get_shield_task, send_prompt_to_shield, send_response_to_shield
 from src.utils.logger import get_logger
 
-logger = get_logger(__name__)
-
+logger = get_logger("src.core")
 
 @type_subscription("assistant_conversation")
 class SoloOrchestratorAssistantAgent(RoutedAgent):
@@ -226,8 +224,6 @@ class SoloOrchestratorAssistantAgent(RoutedAgent):
         
         # Initial shield validation of user input
         query = message.content
-        # Checks for safety, appropriateness, and basic input validation
-        logger.info(f"[SoloOrchestratorAssistantAgent.message_loop] Sending message to shield")
         
         # Add user message to conversation contexts
         logger.debug(f"[SoloOrchestratorAssistantAgent.message_loop] Adding query to model context")
@@ -266,6 +262,7 @@ class SoloOrchestratorAssistantAgent(RoutedAgent):
         final_response, tool_responses = await self.loop_calls(response_with_tools.content, tools, ctx, query)
         if final_response == "":
             return response, ""
+        
         logger.debug(f"[SoloOrchestratorAssistantAgent.message_loop] Final response: {final_response}")
         
         # Process individual tool responses

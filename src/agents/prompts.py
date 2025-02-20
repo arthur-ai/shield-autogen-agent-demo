@@ -49,13 +49,6 @@ ORCHESTRATOR_SYSTEM_MESSAGE = """
                                  * criteria (required): Dictionary of screening criteria
                                  * market (required): Market to screen (e.g., "NYSE", "NASDAQ")
 
-                            8. SavingsGoalTool:
-                               - Calculates savings plans and investment strategies for financial goals
-                               - Parameters:
-                                 * target_amount (required): Goal amount to save
-                                 * timeframe (required): Time period in months
-                                 * initial_investment (required): Starting investment amount
-                                 * monthly_contribution (required): Monthly contribution amount
 
                             I need to always try to split the task into smaller tasks that are listed above.
                             Each task is going to be a single tool call.

@@ -48,6 +48,11 @@ Install required packages:
 ```bash
 pip install -r requirements.txt
 ```
+You should also make sure you have installed the AutoGen extension of your choice, we’re using Azure OpenAI:
+```bash
+pip install -U "autogen-ext[azure]"
+```
+
 
 ### 4. Environment Configuration
 Create a `.env` file in the project root with your API credentials:
