@@ -180,6 +180,11 @@ class SoloOrchestratorAssistantAgent(RoutedAgent):
         PII_status = inference_result.return_pii()
         logger.debug(f"[SoloOrchestratorAssistantAgent] PII status: {PII_status}")
         if not PII_status:
+            final_resolution_response.content = f"The response contains sensitive information and cannot be shared"
+
+        hallucination_status = inference_result.return_hallucination()
+        logger.debug(f"[SoloOrchestratorAssistantAgent] Hallucination status: {hallucination_status}")
+        if not hallucination_status:
             final_resolution_response.content = f"The answer is not safe to share."
 
 
