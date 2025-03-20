@@ -170,3 +170,21 @@ class InferenceResult:
                     return False
         logger.debug("[InferenceResult.return_pii] All PII rules passed or no PII rules found")
         return True
+
+    def return_hallucination(self) -> bool:
+        """
+        Checks if any hallucination rules exist 
+        and returns if they all passed.
+        """ 
+        logger.debug("[InferenceResult.return_hallucination] Checking hallucination rules")
+        if self.rule_results is None:
+            logger.debug("[InferenceResult.return_hallucination] No rules found")
+            return True
+        for rule in self.rule_results:
+            if "hallucination" in rule.name.lower():
+                logger.debug(f"[InferenceResult.return_hallucination] Found hallucination rule: {rule.name}")
+                if not rule.result_boolean:
+                    logger.info(f"[InferenceResult.return_hallucination] Hallucination rule failed: {rule.name}")
+                    return False
+        logger.debug("[InferenceResult.return_hallucination] All hallucination rules passed or no hallucination rules found")
+        return True
